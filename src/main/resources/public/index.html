@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BikeStore Async</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1e222b;
+    --line: #2a2f3a;
+    --text: #e8eaef;
+    --muted: #8b93a3;
+    --accent: #ff6b35;
+    --accent-2: #ff8c5a;
+    --ok: #3ecf8e;
+    --warn: #f5b942;
+    --bad: #ff5c6c;
+    --info: #5aa9ff;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; font-size: 14px;
+    background-image: radial-gradient(circle at 15% -10%, rgba(255,107,53,.18), transparent 40%),
+                      radial-gradient(circle at 100% 0%, rgba(90,169,255,.10), transparent 35%);
+    min-height: 100vh;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 32px; border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(6px); position: sticky; top: 0; z-index: 5; background: rgba(15,17,21,.8);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo {
+    width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), #e8452c);
+    box-shadow: 0 6px 18px rgba(255,107,53,.35);
+  }
+  .brand h1 { font-size: 19px; margin: 0; letter-spacing: .3px; }
+  .brand small { color: var(--muted); font-size: 12px; }
+  .live { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 0 rgba(62,207,142,.6); animation: pulse 1.6s infinite; }
+  .dot.off { background: var(--bad); animation: none; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(62,207,142,.6);} 70% { box-shadow: 0 0 0 9px rgba(62,207,142,0);} 100% { box-shadow: 0 0 0 0 rgba(62,207,142,0);} }
+
+  main { display: grid; grid-template-columns: 430px 1fr; gap: 24px; padding: 24px 32px; max-width: 1500px; margin: 0 auto; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+  main > section { min-width: 0; }
+  main > section.card { align-self: start; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+  .card h2 { font-size: 15px; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .n { background: var(--panel-2); color: var(--muted); font-size: 11px; padding: 2px 8px; border-radius: 99px; }
+
+  /* catalogo */
+  .products { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .product {
+    background: var(--panel-2); border: 1.5px solid transparent; border-radius: 12px; padding: 12px;
+    cursor: pointer; transition: .15s; position: relative;
+  }
+  .product:hover { border-color: var(--line); transform: translateY(-1px); }
+  .product.sel { border-color: var(--accent); background: rgba(255,107,53,.08); }
+  .product.sel::after { content: "✓"; position: absolute; top: 8px; right: 10px; color: var(--accent); font-weight: 700; }
+  .product svg { width: 100%; height: 54px; }
+  .product .name { font-weight: 600; font-size: 13px; margin-top: 6px; }
+  .product .price { color: var(--accent-2); font-weight: 700; margin-top: 2px; }
+
+  label { display: block; color: var(--muted); font-size: 12px; margin: 14px 0 6px; }
+  input[type=text], input[type=email] {
+    width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); font-size: 14px; outline: none; transition: .15s;
+  }
+  input:focus { border-color: var(--accent); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .qty { display: flex; align-items: center; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; width: fit-content; }
+  .qty button { background: none; border: 0; color: var(--text); width: 36px; height: 38px; font-size: 18px; cursor: pointer; }
+  .qty span { min-width: 28px; text-align: center; font-weight: 600; }
+
+  .toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px;
+    background: var(--panel-2); border-radius: 10px; padding: 10px 12px; }
+  .toggle div small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; inset: 0; background: var(--line); border-radius: 99px; cursor: pointer; transition: .2s; }
+  .slider::before { content: ""; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+  .switch input:checked + .slider { background: var(--bad); }
+  .switch input:checked + .slider::before { transform: translateX(18px); }
+
+  .total { display: flex; justify-content: space-between; align-items: baseline; margin: 18px 0 12px; padding-top: 14px; border-top: 1px dashed var(--line); }
+  .total b { font-size: 24px; }
+  .btn {
+    width: 100%; padding: 13px; border: 0; border-radius: 11px; font-size: 15px; font-weight: 600; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent), #e8452c); color: #fff; transition: .15s;
+    box-shadow: 0 8px 20px rgba(255,107,53,.25);
+  }
+  .btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .btn:disabled { opacity: .6; cursor: default; transform: none; }
+
+  /* estadisticas */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+  .stat small { color: var(--muted); font-size: 12px; }
+  .stat b { display: block; font-size: 26px; margin-top: 4px; }
+  .stat.ok b { color: var(--ok); } .stat.warn b { color: var(--warn); } .stat.bad b { color: var(--bad); }
+
+  /* pedidos */
+  .orders { display: flex; flex-direction: column; gap: 10px; max-height: 470px; overflow-y: auto; padding-right: 4px; }
+  .empty { color: var(--muted); text-align: center; padding: 30px; }
+  .order { background: var(--panel-2); border-radius: 12px; padding: 14px 16px; border-left: 3px solid var(--info); animation: in .3s ease; }
+  @keyframes in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  .order.st-pagado, .order.st-completado { border-left-color: var(--ok); }
+  .order.st-reintentando { border-left-color: var(--warn); }
+  .order.st-dlq { border-left-color: var(--bad); }
+  .order-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .order-id { font-family: Consolas, monospace; font-weight: 600; }
+  .order-sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
+  .badge { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 99px; white-space: nowrap; }
+  .b-procesando { background: rgba(90,169,255,.15); color: var(--info); }
+  .b-reintentando { background: rgba(245,185,66,.15); color: var(--warn); }
+  .b-pagado, .b-completado { background: rgba(62,207,142,.15); color: var(--ok); }
+  .b-dlq { background: rgba(255,92,108,.15); color: var(--bad); }
+
+  .steps { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; color: var(--muted); }
+  .step { display: flex; align-items: center; gap: 6px; }
+  .step i { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 10px; background: var(--line); color: var(--muted); }
+  .step.done i { background: var(--ok); color: #0b2a1c; }
+  .step.fail i { background: var(--bad); color: #fff; }
+  .step.run i { background: var(--info); color: #fff; animation: blink 1s infinite; }
+  .step.done, .step.run { color: var(--text); }
+  @keyframes blink { 50% { opacity: .45; } }
+  .bar { flex: 1; height: 2px; background: var(--line); border-radius: 2px; max-width: 70px; }
+  .bar.done { background: var(--ok); }
+  .tries { display: flex; gap: 4px; margin-left: 4px; }
+  .try { width: 9px; height: 9px; border-radius: 3px; background: var(--line); }
+  .try.ok { background: var(--ok); } .try.bad { background: var(--bad); } .try.run { background: var(--info); animation: blink 1s infinite; }
+
+  /* consola */
+  .console {
+    margin-top: 20px; background: #0a0c10; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+  }
+  .console-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  .console-head .lights { display: flex; gap: 6px; }
+  .console-head .lights span { width: 10px; height: 10px; border-radius: 50%; background: #ff5f57; }
+  .console-head .lights span:nth-child(2) { background: #febc2e; } .console-head .lights span:nth-child(3) { background: #28c840; }
+  .console-head small { color: var(--muted); }
+  .log { font-family: Consolas, "Cascadia Code", monospace; font-size: 12px; height: 230px; overflow: auto; padding: 10px 16px; line-height: 1.6; }
+  .log div { white-space: nowrap; }
+  .log .ts { color: #6b7280; } .log .th { color: #8b7cf6; } .log .id { color: var(--accent-2); }
+  .c-OrderProducer { color: var(--info); } .c-PaymentWorker { color: var(--warn); } .c-EmailWorker { color: var(--ok); }
+  .c-DlqWorker { color: var(--bad); } .c-BROKER, .c-App, .c-Front-end { color: var(--muted); }
+
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; background: var(--panel); border: 1px solid var(--line);
+    border-left: 3px solid var(--ok); padding: 12px 16px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.4);
+    transform: translateY(120px); opacity: 0; transition: .3s; z-index: 10;
+  }
+  .toast.show { transform: none; opacity: 1; }
+  .toast.err { border-left-color: var(--bad); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/><path d="M5.5 17 9 9h6l3.5 8M9 9 12 17h-6.5M15 9l-1.5-3H11"/>
+      </svg>
+    </div>
+    <div>
+      <h1>BikeStore Async</h1>
+      <small>v1.0 · ActiveMQ · Mateo</small>
+    </div>
+  </div>
+  <div class="live"><span class="dot" id="dot"></span><span id="liveTxt">Conectado al broker</span></div>
+</header>
+
+<main>
+  <!-- Columna izquierda: compra -->
+  <section class="card">
+    <h2>Elige tu producto</h2>
+    <div class="products" id="products"></div>
+
+    <div class="row">
+      <div>
+        <label>Cliente</label>
+        <input type="text" id="cliente" value="Mateo">
+      </div>
+      <div>
+        <label>Cantidad</label>
+        <div class="qty">
+          <button onclick="cambiarCantidad(-1)">−</button><span id="cantidad">1</span><button onclick="cambiarCantidad(1)">+</button>
+        </div>
+      </div>
+    </div>
+    <label>E-mail</label>
+    <input type="email" id="email" value="mateo@mail.com">
+
+    <div class="toggle">
+      <div>Simular tarjeta sin fondos<small>El cobro falla siempre y el pedido termina en la DLQ</small></div>
+      <label class="switch" style="margin:0"><input type="checkbox" id="forzar"><span class="slider"></span></label>
+    </div>
+
+    <div class="total"><span style="color:var(--muted)">Total</span><b id="total">$0.00</b></div>
+    <button class="btn" id="btnOrdenar" onclick="ordenar()">Confirmar pedido</button>
+  </section>
+
+  <!-- Columna derecha: monitor -->
+  <section>
+    <div class="stats">
+      <div class="stat"><small>Pedidos</small><b id="sPedidos">0</b></div>
+      <div class="stat ok"><small>Pagados</small><b id="sPagados">0</b></div>
+      <div class="stat warn"><small>Reintentos</small><b id="sReintentos">0</b></div>
+      <div class="stat bad"><small>En DLQ</small><b id="sDlq">0</b></div>
+    </div>
+
+    <div class="card">
+      <h2>Pedidos en vivo <span class="n" id="nPedidos">0</span></h2>
+      <div class="orders" id="orders"><div class="empty">Todavía no hay pedidos. Confirma uno para verlo aquí.</div></div>
+    </div>
+
+    <div class="console">
+      <div class="console-head">
+        <div class="lights"><span></span><span></span><span></span></div>
+        <small>Registro de eventos (igual que la consola)</small>
+        <small id="nEventos">0 eventos</small>
+      </div>
+      <div class="log" id="log"></div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ---------- catalogo ----------
+  const PRODUCTOS = [
+    { nombre: "Bicicleta MTB Rin 29", precio: 450.00, color: "#ff6b35", tipo: "mtb" },
+    { nombre: "Bicicleta de ruta",    precio: 899.99, color: "#5aa9ff", tipo: "ruta" },
+    { nombre: "Bicicleta urbana",     precio: 380.00, color: "#3ecf8e", tipo: "urbana" },
+    { nombre: "Casco Pro",            precio: 65.50,  color: "#f5b942", tipo: "casco" },
+  ];
+  let seleccionado = 0, cantidad = 1;
+
+  function icono(p) {
+    if (p.tipo === "casco") {
+      return `<svg viewBox="0 0 120 54"><path d="M30 40 Q30 10 60 10 Q92 10 92 40 Z" fill="${p.color}" opacity=".9"/>
+        <path d="M40 22 Q60 14 80 22" stroke="#0f1115" stroke-width="3" fill="none"/><rect x="26" y="39" width="70" height="5" rx="2.5" fill="${p.color}"/></svg>`;
+    }
+    const h = p.tipo === "ruta" ? "M44 22 h10 M78 20 q6 -2 8 4" : p.tipo === "urbana" ? "M42 18 h12 M78 16 h10" : "M44 20 h10 M76 18 h12";
+    return `<svg viewBox="0 0 120 54" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="32" cy="38" r="13" stroke="#8b93a3" stroke-width="3"/><circle cx="88" cy="38" r="13" stroke="#8b93a3" stroke-width="3"/>
+      <path d="M32 38 L50 20 L80 20 L88 38 M50 20 L60 38 L80 20 M60 38 L32 38" stroke="${p.color}" stroke-width="3.5"/>
+      <path d="${h}" stroke="${p.color}" stroke-width="3.5"/></svg>`;
+  }
+
+  function pintarProductos() {
+    document.getElementById("products").innerHTML = PRODUCTOS.map((p, i) => `
+      <div class="product ${i === seleccionado ? "sel" : ""}" onclick="elegir(${i})">
+        ${icono(p)}<div class="name">${p.nombre}</div><div class="price">$${p.precio.toFixed(2)}</div>
+      </div>`).join("");
+    actualizarTotal();
+  }
+  function elegir(i) { seleccionado = i; pintarProductos(); }
+  function cambiarCantidad(d) { cantidad = Math.max(1, Math.min(10, cantidad + d)); document.getElementById("cantidad").textContent = cantidad; actualizarTotal(); }
+  function actualizarTotal() { document.getElementById("total").textContent = "$" + (PRODUCTOS[seleccionado].precio * cantidad).toFixed(2); }
+
+  // ---------- llamar al API "Ordenar" ----------
+  async function ordenar() {
+    const btn = document.getElementById("btnOrdenar");
+    btn.disabled = true; btn.textContent = "Enviando...";
+    const p = PRODUCTOS[seleccionado];
+    const body = {
+      cliente: document.getElementById("cliente").value,
+      email: document.getElementById("email").value,
+      forzarFallo: document.getElementById("forzar").checked,
+      items: [{ producto: p.nombre, cantidad: cantidad, precio: p.precio }]
+    };
+    try {
+      const r = await fetch("/ordenar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await r.json();
+      if (r.status === 202) toast(`Pedido <b>${data.pedidoId}</b> recibido (HTTP 202). Se procesa en segundo plano.`);
+      else toast("Error: " + (data.error || r.status), true);
+    } catch (e) {
+      toast("No se pudo contactar al API", true);
+    }
+    btn.disabled = false; btn.textContent = "Confirmar pedido";
+  }
+
+  function toast(html, err) {
+    const t = document.getElementById("toast");
+    t.innerHTML = html; t.className = "toast show" + (err ? " err" : "");
+    clearTimeout(t._h); t._h = setTimeout(() => t.className = "toast" + (err ? " err" : ""), 3500);
+  }
+
+  // ---------- monitor en vivo ----------
+  let ultimoSeq = 0, maxReintentos = 3, totalEventos = 0;
+  const pedidos = new Map();   // pedidoId -> estado
+
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function aplicarEvento(e) {
+    agregarLog(e);
+    if (!e.pedidoId) return;
+    let p = pedidos.get(e.pedidoId);
+    if (!p) {
+      p = { id: e.pedidoId, cliente: "", producto: "", total: 0, intentos: [], estado: "procesando", email: false, hora: e.timestamp };
+      pedidos.set(e.pedidoId, p);
+    }
+    switch (e.tipo) {
+      case "PUBLICADO":
+        Object.assign(p, { cliente: e.cliente, producto: e.producto, total: e.total, correo: e.email, hora: e.timestamp });
+        break;
+      case "COBRANDO":
+        p.intentos.push("run"); p.estado = p.intentos.length > 1 ? "reintentando" : "procesando";
+        break;
+      case "RECHAZADO":
+        p.intentos[p.intentos.length - 1] = "bad"; p.estado = "reintentando";
+        break;
+      case "AGOTADO":
+        p.intentos[p.intentos.length - 1] = "bad";
+        break;
+      case "DLQ":
+        p.estado = "dlq";
+        break;
+      case "PAGADO":
+        p.intentos[p.intentos.length - 1] = "ok"; p.estado = "pagado";
+        break;
+      case "EMAIL":
+        p.email = true; p.estado = "completado";
+        break;
+    }
+  }
+
+  const ETIQUETA = { procesando: "Procesando", reintentando: "Reintentando cobro", pagado: "Pagado", completado: "Pagado · e-mail enviado", dlq: "En Dead-Letter Queue" };
+
+  function pintarPedidos() {
+    const lista = [...pedidos.values()].reverse();
+    const cont = document.getElementById("orders");
+    if (!lista.length) return;
+    cont.innerHTML = lista.map(p => {
+      const cobroOk = p.estado === "pagado" || p.estado === "completado";
+      const cobroClase = cobroOk ? "done" : p.estado === "dlq" ? "fail" : "run";
+      const emailClase = p.email ? "done" : p.estado === "dlq" ? "fail" : cobroOk ? "run" : "";
+      const slots = [];
+      for (let i = 0; i < maxReintentos + 1; i++) slots.push(`<span class="try ${p.intentos[i] || ""}" title="${i === 0 ? "Intento 1" : "Reintento " + i}"></span>`);
+      return `<div class="order st-${p.estado}">
+        <div class="order-top">
+          <div><div class="order-id">${esc(p.id)}</div>
+            <div class="order-sub">${esc(p.cliente)} · ${esc(p.producto)} · <b>$${Number(p.total).toFixed(2)}</b> · ${esc((p.hora || "").slice(11, 19))}</div></div>
+          <span class="badge b-${p.estado}">${ETIQUETA[p.estado]}</span>
+        </div>
+        <div class="steps">
+          <span class="step done"><i>✓</i>Recibido</span><span class="bar done"></span>
+          <span class="step ${cobroClase}"><i>${cobroOk ? "✓" : p.estado === "dlq" ? "✕" : "$"}</i>Cobro</span>
+          <span class="tries">${slots.join("")}</span><span class="bar ${cobroOk ? "done" : ""}"></span>
+          <span class="step ${emailClase}"><i>${p.email ? "✓" : p.estado === "dlq" ? "✕" : "@"}</i>E-mail</span>
+        </div>
+      </div>`;
+    }).join("");
+
+    const vals = [...pedidos.values()];
+    document.getElementById("sPedidos").textContent = vals.length;
+    document.getElementById("nPedidos").textContent = vals.length;
+    document.getElementById("sPagados").textContent = vals.filter(p => p.estado === "pagado" || p.estado === "completado").length;
+    document.getElementById("sReintentos").textContent = vals.reduce((a, p) => a + Math.max(0, p.intentos.length - 1), 0);
+    document.getElementById("sDlq").textContent = vals.filter(p => p.estado === "dlq").length;
+  }
+
+  function agregarLog(e) {
+    const log = document.getElementById("log");
+    const abajo = log.scrollTop + log.clientHeight >= log.scrollHeight - 20;
+    const d = document.createElement("div");
+    d.innerHTML = `<span class="ts">[${esc(e.timestamp)}]</span> <span class="th">[${esc(e.thread)}]</span> `
+      + `<span class="c-${esc(e.componente)}">[${esc(e.componente)}]</span> `
+      + `<span class="id">${esc(e.pedidoId || "-")}</span> | ${esc(e.mensaje)}`;
+    log.appendChild(d);
+    while (log.children.length > 400) log.removeChild(log.firstChild);
+    if (abajo) log.scrollTop = log.scrollHeight;
+    document.getElementById("nEventos").textContent = (++totalEventos) + " eventos";
+  }
+
+  async function sondear() {
+    try {
+      const r = await fetch("/eventos?desde=" + ultimoSeq);
+      const data = await r.json();
+      maxReintentos = data.maxReintentos;
+      if (data.eventos.length) {
+        data.eventos.forEach(aplicarEvento);
+        ultimoSeq = data.eventos[data.eventos.length - 1].seq;
+        pintarPedidos();
+      }
+      setLive(true);
+    } catch (e) {
+      setLive(false);
+    }
+    setTimeout(sondear, 700);
+  }
+  function setLive(ok) {
+    document.getElementById("dot").className = "dot" + (ok ? "" : " off");
+    document.getElementById("liveTxt").textContent = ok ? "Conectado al broker" : "Sin conexión con el servidor";
+  }
+
+  pintarProductos();
+  sondear();
+</script>
+</body>
+</html>
