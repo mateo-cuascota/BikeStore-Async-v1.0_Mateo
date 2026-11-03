@@ -2,3 +2,4 @@ target/
 dlq-pedidos.log
 .idea/
 *.iml
+*.zip

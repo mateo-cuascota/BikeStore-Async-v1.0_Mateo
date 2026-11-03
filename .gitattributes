@@ -1,0 +1,8 @@
+# Normaliza saltos de linea para que el proyecto funcione al clonarlo en cualquier sistema
+* text=auto
+
+# Script de Git Bash / Linux / Mac: siempre LF
+mvnw text eol=lf
+
+# Scripts de Windows: siempre CRLF
+*.cmd text eol=crlf

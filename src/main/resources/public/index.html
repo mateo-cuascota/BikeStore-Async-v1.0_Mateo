@@ -386,6 +386,14 @@
   async function sondear() {
     try {
       const r = await fetch("/eventos?desde=" + ultimoSeq);
+      const tipo = r.headers.get("Content-Type") || "";
+      if (!tipo.includes("json")) {
+        // Responde la version vieja del programa (no tiene /eventos)
+        document.getElementById("dot").className = "dot off";
+        document.getElementById("liveTxt").textContent = "Está corriendo una versión vieja: detén el programa (Ctrl+C) y vuelve a ejecutarlo";
+        setTimeout(sondear, 3000);
+        return;
+      }
       const data = await r.json();
       maxReintentos = data.maxReintentos;
       if (data.eventos.length) {

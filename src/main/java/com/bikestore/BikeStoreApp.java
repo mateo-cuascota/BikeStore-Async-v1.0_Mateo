@@ -30,7 +30,15 @@ public class BikeStoreApp {
         System.out.println("==============================================");
 
         BrokerServer broker = new BrokerServer();
-        broker.start();
+        try {
+            broker.start();
+        } catch (Exception e) {
+            System.out.println();
+            System.out.println("ERROR: no se pudo iniciar el broker en " + Config.BROKER_URL + ".");
+            System.out.println("Seguramente ya hay otra instancia de BikeStore corriendo (otra terminal).");
+            System.out.println("Cierrala con Ctrl+C o ejecuta:  netstat -ano | grep :8080   y luego  taskkill //PID <numero> //F");
+            System.exit(1);
+        }
 
         PaymentWorker payment = new PaymentWorker();
         EmailWorker email = new EmailWorker();
